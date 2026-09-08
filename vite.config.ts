@@ -5,6 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Relative Pfade, damit dist/index.html auch per file:// (Electron) lädt.
+  base: './',
   plugins: [
     react(),
     tailwindcss(),

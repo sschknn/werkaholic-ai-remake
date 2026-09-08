@@ -4,6 +4,10 @@ node_modules
 # builds
 dist
 dist-ssr
+dist-electron/
+release/
+android/
+electron/dist/
 *.local
 
 # env (Echte Keys nie committen!)
