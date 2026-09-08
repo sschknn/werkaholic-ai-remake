@@ -1,6 +1,12 @@
+/**
+ * Legacy-Wrapper (AdOutput-Schema) – für bestehende Tests/Callers.
+ * Neue Implementierung: src/services/ai.ts (AdAnalysis-Schema, Provider opencode|openrouter).
+ * Neue Re-Exporte unten; alte Funktionen bleiben bis zur finalen Migration grün.
+ */
 import { AD_CONDITIONS, SETTINGS_KEY, type AdOutput, type WerkaholicSettings } from '../types'
 import { sanitizeTags, sanitizeText } from '../utils/sanitize'
 import { buildAdPrompt } from './prompts'
+import { ProviderError } from './ai'
 
 export const REQUEST_TIMEOUT_MS = 30_000
 export const MAX_RETRIES = 2
@@ -9,13 +15,12 @@ export const PLACEHOLDER_API_URL = 'https://api.opencode.example/v1/ad-generatio
 
 export type OpenCodeErrorKind = 'auth' | 'rate-limit' | 'server' | 'network' | 'parse' | 'validation' | 'config'
 
-export class OpenCodeError extends Error {
-  kind: OpenCodeErrorKind
-  status?: number
+export class OpenCodeError extends ProviderError {
+  declare kind: OpenCodeErrorKind
   constructor(kind: OpenCodeErrorKind, message: string, status?: number) {
-    super(message)
+    super(kind, message, status)
+    this.name = 'OpenCodeError'
     this.kind = kind
-    this.status = status
   }
 }
 
@@ -233,3 +238,17 @@ export function buildPlaceholderAd(captions: string[], extraNotes = ''): AdOutpu
     confidence: 0,
   }
 }
+
+// --- Neue AdAnalysis-API (Re-Exporte, kein Bruch bestehender Importe) ---
+export {
+  analyzeWithProvider,
+  buildPlaceholderAnalysis,
+  extractJson,
+  validateAnalysis,
+  ProviderError,
+  OPENROUTER_API_URL,
+  OPENROUTER_DEFAULT_MODEL,
+  AI_REQUEST_TIMEOUT_MS,
+  AI_MAX_RETRIES,
+} from './ai'
+export type { AnalyzeInput, ProviderErrorKind } from './ai'
