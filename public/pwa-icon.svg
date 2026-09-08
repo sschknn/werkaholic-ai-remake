@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0b6cff"/>
+  <rect x="32" y="32" width="448" height="448" rx="96" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="8"/>
+  <!-- Stylized W -->
+  <path d="M116 152 L172 360 L228 220 L256 282 L284 220 L340 360 L396 152"
+        fill="none" stroke="#ffffff" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Spark / AI dot -->
+  <circle cx="376" cy="116" r="28" fill="#ffffff"/>
+  <circle cx="376" cy="116" r="12" fill="#0b6cff"/>
+</svg>
