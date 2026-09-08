@@ -44,6 +44,22 @@ npm test                    # vitest run
 |---|---|
 | `VITE_OPEN_CODE_API_URL` / `OPEN_CODE_API_URL` | Open Code Endpoint (Platzhalter möglich) |
 
+## Marktplätze
+
+Generisches Publish-System unter `src/services/marketplaces/` (Dispatch via `publishToMarketplace` in `registry.ts`).
+
+| Marktplatz | Status | Auth | Schritte |
+|---|---|---|---|
+| Tradera | live | App-Key + Token-Login | `publishListing(cfg, ad, images, opts)` (Referenz-Adapter: items → images → commit) |
+| eBay | live | OAuth2 User-Token, Scope `sell.inventory` | PUT `inventory_item/{sku}` → POST `offer` (Header `Content-Language: de-DE`, `EBAY_DE`, EUR) → POST `offer/{id}/publish`; Sandbox per Flag (`api.sandbox.ebay.com`); DataURL-Bilder → Warnung, Item ohne Bilder |
+| Etsy | live | `x-api-key` + Bearer, Scope `listings_w` | POST `shops/{shop_id}/listings` (draft, urlencoded) → POST `listings/{id}/images` (multipart, rank) → PATCH `listings/{id}` (`state: active`); Tags aus Keywords (max 13) |
+| Hood.de | live | Platin-Shop (AccountName + Schnittstellen-Passwort), konfigurierbare `apiUrl` | POST JSON `{auth, item}` an `apiUrl`; ohne `apiUrl` → CSV-Fallback (`buildHoodCsv`/`downloadHoodCsv`: `Titel;Beschreibung;Preis;Kategorie`) |
+| Facebook Marketplace | partner | Nur zugelassene Partner (Graph API Catalog: Catalog-ID + Token) | POST `/{catalog_id}/items_batch` (CREATE) → GET `check_batch_request_status` (Poll max 3x); nur http(s)-`image_link`, DataURLs → `config`-Fehler |
+| Kleinanzeigen | unsupported | Keine Public Listing-API | Fallback `clipboard-deeplink` (Clipboard + Deep-Link, siehe `exportService`) |
+| Vinted | unsupported | Keine Public API (nur Pro-Allowlist) | Fallback `manual-csv` (manuell anlegen) |
+| Ricardo | unsupported | Öffentliche API am 01.09.2026 abgeschaltet | Fallback `manual-csv` (manuell anlegen) |
+| Willhaben | unsupported | Keine Public Listing-API | Fallback `manual-csv` (manuell anlegen) |
+
 ## Offene Fragen
 
 - Reale `OPEN_CODE_API_URL` + erwartet Auth-Scope für Free Trial Key?
