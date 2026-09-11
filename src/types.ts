@@ -114,7 +114,7 @@ export const SETTINGS_KEY = 'werkaholic_settings';
 
 export function defaultAppSettings(): AppSettings {
   return {
-    activeProvider: 'opencode',
+    activeProvider: 'openrouter',
     opencode: { apiKey: '', model: '', apiUrl: '' },
     openrouter: { apiKey: '', model: '' },
     openai: { apiKey: '', model: '' },
