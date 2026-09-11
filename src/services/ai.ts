@@ -284,9 +284,20 @@ async function postOnce(provider: ProviderId, cfg: ResolvedProvider, input: Anal
   }
 }
 
+/** Fallback-Reihenfolge: kostenlose Modelle zuerst. */
+const PROVIDER_FALLBACK_CHAIN: ProviderId[] = ['openrouter', 'gemini', 'openai', 'xai', 'opencode']
+
+/** Gibt die nächsten Provider in der Fallback-Kette zurück (exkl. aktuellen). */
+function getFallbackProviders(current: ProviderId): ProviderId[] {
+  const idx = PROVIDER_FALLBACK_CHAIN.indexOf(current)
+  return idx >= 0 ? PROVIDER_FALLBACK_CHAIN.slice(idx + 1) : PROVIDER_FALLBACK_CHAIN
+}
+
+/** Prüft ob ein Fehler einen Provider-Wechsel rechtfertigt. (wird inline geprüft) */
+
 /**
  * Analysiert Bilder/Captions über den gewählten Provider zu einer AdAnalysis.
- * Timeout 30s, max. 2 Retries mit Exponential Backoff (nur network/server/rate-limit).
+ * Timeout 30s, max. 2 Retries pro Provider. Bei auth/rate-limit/qu/server → nächsten Provider probieren.
  */
 export async function analyzeWithProvider(provider: ProviderId, input: AnalyzeInput): Promise<AdAnalysis> {
   const hasImages = input.images.some((i) => i && i.trim().length > 0)
@@ -294,24 +305,45 @@ export async function analyzeWithProvider(provider: ProviderId, input: AnalyzeIn
   if (!hasImages && !hasCaptions) {
     throw new ProviderError('config', 'Mindestens ein Bild oder eine Bildbeschreibung erforderlich.')
   }
-  const cfg = resolveProvider(provider)
-  let lastError: unknown
-  for (let attempt = 0; attempt <= AI_MAX_RETRIES; attempt++) {
-    try {
-      const rawText = await postOnce(provider, cfg, input)
-      return parseAnalysis(rawText)
-    } catch (e) {
-      lastError = e
-      const kind = e instanceof ProviderError ? e.kind : 'network'
-      if (kind !== 'network' && kind !== 'server' && kind !== 'rate-limit') throw e
-      if (attempt < AI_MAX_RETRIES) {
-        await sleep(AI_BASE_DELAY_MS * 2 ** attempt)
-        continue
+
+  const providersToTry = [provider, ...getFallbackProviders(provider)]
+  const errors: string[] = []
+
+  for (const p of providersToTry) {
+    const cfg = resolveProvider(p)
+    for (let attempt = 0; attempt <= AI_MAX_RETRIES; attempt++) {
+      try {
+        const rawText = await postOnce(p, cfg, input)
+        return parseAnalysis(rawText)
+      } catch (e) {
+        const kind = e instanceof ProviderError ? e.kind : 'network'
+        if (kind === 'auth' || kind === 'rate-limit' || kind === 'quota') {
+          errors.push(`${cfg.label}: ${e instanceof Error ? e.message : String(e)}`)
+          break // nächsten Provider versuchen
+        }
+        if (kind === 'server') {
+          if (attempt < AI_MAX_RETRIES) {
+            await sleep(AI_BASE_DELAY_MS * 2 ** attempt)
+            continue
+          }
+          errors.push(`${cfg.label}: Serverfehler`)
+          break
+        }
+        if (kind === 'network') {
+          if (attempt < AI_MAX_RETRIES) {
+            await sleep(AI_BASE_DELAY_MS * 2 ** attempt)
+            continue
+          }
+          errors.push(`${cfg.label}: Netzwerkfehler`)
+          break
+        }
+        throw e // parse/validation/config → sofort werfen
       }
-      throw e
     }
   }
-  throw lastError instanceof Error ? lastError : new ProviderError('network', 'Unbekannter Fehler — später versuchen.')
+
+  const lastErr = errors.length > 0 ? errors.join(' | ') : 'Unbekannter Fehler'
+  throw new ProviderError('network', `Alle Provider gescheitert: ${lastErr} — lokal speichern möglich.`)
 }
 
 /** Offline-Platzhalter ohne KI – immer manuell nachbearbeiten. */
