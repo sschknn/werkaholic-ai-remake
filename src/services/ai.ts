@@ -226,6 +226,7 @@ function extractContent(data: unknown): string {
     }
     if (typeof d.text === 'string' && d.text) return d.text
     if (typeof d.output === 'string' && d.output) return d.output
+    if (typeof d.reasoning === 'string' && d.reasoning) return d.reasoning
     return JSON.stringify(data)
   }
   return String(data)
