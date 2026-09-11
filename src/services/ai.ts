@@ -248,7 +248,6 @@ async function postOnce(provider: ProviderId, cfg: ResolvedProvider, input: Anal
     if (provider === 'openrouter') {
       headers['HTTP-Referer'] = APP_REFERER
       headers['X-Title'] = APP_TITLE
-      body.response_format = { type: 'json_object' }
     }
     const res = await fetch(cfg.url, {
       method: 'POST',
@@ -256,7 +255,8 @@ async function postOnce(provider: ProviderId, cfg: ResolvedProvider, input: Anal
       body: JSON.stringify(body),
       signal: ctrl.signal,
     })
-    if (res.status === 401 || res.status === 403) {
+    console.log(`[AI] ${cfg.label} status=${res.status} url=${cfg.url}`)
+    if (res.status === 401 || res.status === 403 || res.status === 402) {
       throw new ProviderError('auth', `API-Key für ${cfg.label} ungültig oder abgelaufen — bitte in Einstellungen prüfen.`, res.status)
     }
     if (res.status === 429) {
@@ -271,9 +271,14 @@ async function postOnce(provider: ProviderId, cfg: ResolvedProvider, input: Anal
     }
     const contentType = res.headers.get('content-type') || ''
     if (contentType.includes('application/json')) {
-      return extractContent((await res.json()) as unknown)
+      const json = await res.json() as unknown
+      const content = extractContent(json)
+      console.log(`[AI] ${cfg.label} content_len=${content.length}`)
+      return content
     }
-    return await res.text()
+    const text = await res.text()
+    console.log(`[AI] ${cfg.label} text_len=${text.length}`)
+    return text
   } catch (e) {
     if (e instanceof ProviderError) throw e
     if (e instanceof DOMException && e.name === 'AbortError') {
