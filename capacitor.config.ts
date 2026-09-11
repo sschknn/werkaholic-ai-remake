@@ -7,17 +7,6 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: false,
   },
-  plugins: {
-    Camera: {
-      forResult: true,
-      photography: true,
-      source: 'Camera',
-      mediaType: 'photographs',
-      direction: 'rear',
-      allowEditing: false,
-      quality: 80,
-    },
-  },
 };
 
 export default config;

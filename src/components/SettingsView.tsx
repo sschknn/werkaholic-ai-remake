@@ -90,7 +90,7 @@ export default function SettingsView({ settings, onSave, onBack }: Props) {
                   ? <Field label="Modell (openai)" value={s.openai.model ?? ''} onChange={(e) => patch('openai', { ...s.openai, model: e.target.value })} placeholder="gpt-4o-mini" />
                   : s.activeProvider === 'xai'
                     ? <Field label="Modell (xai)" value={s.xai.model ?? ''} onChange={(e) => patch('xai', { ...s.xai, model: e.target.value })} placeholder="grok-3-mini" />
-                    : <Field label="Modell (gemini)" value={s.gemini.model ?? ''} onChange={(e) => patch('gemini', { ...s.gemini, model: e.target.value })} placeholder="gemini-2.0-flash" />}
+                    : <Field label="Modell (gemini)" value={s.gemini.model ?? ''} onChange={(e) => patch('gemini', { ...s.gemini, model: e.target.value })} placeholder="gemini-3.6-flash" />}
             <button onClick={kiCheck} className="px-4 py-2 bg-stone-800 border border-stone-600 rounded text-xs font-bold uppercase text-stone-200">Key-Format prüfen (kein Call)</button>
           </>
         )}
