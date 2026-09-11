@@ -59,18 +59,29 @@ export function migrateToAppSettings(raw: unknown): AppSettings {
   if (typeof o.opencode === 'object' && o.opencode !== null) {
     const oc = o.opencode as Record<string, unknown>;
     const or_ = (o.openrouter as Record<string, unknown> | undefined) ?? {};
+    const oai = (o.openai as Record<string, unknown> | undefined) ?? {};
+    const xai = (o.xai as Record<string, unknown> | undefined) ?? {};
+    const gem = (o.gemini as Record<string, unknown> | undefined) ?? {};
+    const validProviders: ProviderId[] = ['opencode', 'openrouter', 'openai', 'xai', 'gemini'];
+    const active: ProviderId = validProviders.includes(o.activeProvider as ProviderId)
+      ? (o.activeProvider as ProviderId)
+      : 'opencode';
+    const str = (r: Record<string, unknown>, k: string): string => (typeof r[k] === 'string' ? (r[k] as string) : '');
     return {
-      activeProvider: o.activeProvider === 'openrouter' ? 'openrouter' : 'opencode',
+      activeProvider: active,
       opencode: {
-        apiKey: typeof oc.apiKey === 'string' ? oc.apiKey : '',
-        model: typeof oc.model === 'string' ? oc.model : '',
-        apiUrl: typeof oc.apiUrl === 'string' ? oc.apiUrl : '',
+        apiKey: str(oc, 'apiKey'),
+        model: str(oc, 'model'),
+        apiUrl: str(oc, 'apiUrl'),
       },
       openrouter: {
-        apiKey: typeof or_.apiKey === 'string' ? or_.apiKey : '',
-        model: typeof or_.model === 'string' ? or_.model : '',
+        apiKey: str(or_, 'apiKey'),
+        model: str(or_, 'model'),
         apiUrl: typeof or_.apiUrl === 'string' ? or_.apiUrl : undefined,
       },
+      openai: { apiKey: str(oai, 'apiKey'), model: str(oai, 'model') },
+      xai: { apiKey: str(xai, 'apiKey'), model: str(xai, 'model') },
+      gemini: { apiKey: str(gem, 'apiKey'), model: str(gem, 'model') },
       tradera: Array.isArray((o as { tradera?: unknown }).tradera)
         ? undefined
         : (o.tradera as AppSettings['tradera']),
@@ -119,6 +130,9 @@ function applyEnvFallbacks(s: AppSettings): AppSettings {
     activeProvider: s.activeProvider,
     opencode: { ...s.opencode },
     openrouter: { ...s.openrouter },
+    openai: { ...(s.openai ?? { apiKey: '', model: '' }) },
+    xai: { ...(s.xai ?? { apiKey: '', model: '' }) },
+    gemini: { ...(s.gemini ?? { apiKey: '', model: '' }) },
     tradera: s.tradera,
     ebay: s.ebay,
     etsy: s.etsy,
@@ -140,6 +154,30 @@ function applyEnvFallbacks(s: AppSettings): AppSettings {
   if (!out.openrouter.model) {
     const v = readEnv('VITE_OPENROUTER_MODEL');
     if (v) out.openrouter.model = v;
+  }
+  if (!out.openai.apiKey) {
+    const v = readEnv('VITE_OPENAI_API_KEY');
+    if (v) out.openai.apiKey = v;
+  }
+  if (!out.openai.model) {
+    const v = readEnv('VITE_OPENAI_MODEL');
+    if (v) out.openai.model = v;
+  }
+  if (!out.xai.apiKey) {
+    const v = readEnv('VITE_XAI_API_KEY');
+    if (v) out.xai.apiKey = v;
+  }
+  if (!out.xai.model) {
+    const v = readEnv('VITE_XAI_MODEL');
+    if (v) out.xai.model = v;
+  }
+  if (!out.gemini.apiKey) {
+    const v = readEnv('VITE_GEMINI_API_KEY');
+    if (v) out.gemini.apiKey = v;
+  }
+  if (!out.gemini.model) {
+    const v = readEnv('VITE_GEMINI_MODEL');
+    if (v) out.gemini.model = v;
   }
   // Marktplatz-ENV-Fallbacks: Defaults bleiben "" (keine echten Werte im Repo),
   // ENV-Namen nur als optionale Build-/Runtime-Quelle.
@@ -197,12 +235,12 @@ export function getActiveProvider(): ProviderId {
 
 export function getProviderKey(id: ProviderId): string {
   const s = loadSettings();
-  return s[id].apiKey || '';
+  return s[id]?.apiKey || '';
 }
 
 export function getProviderModel(id: ProviderId): string {
   const s = loadSettings();
-  return s[id].model || '';
+  return s[id]?.model || '';
 }
 
 export function getApiUrl(): string {

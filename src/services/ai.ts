@@ -35,6 +35,12 @@ export const AI_MAX_RETRIES = 2
 const AI_BASE_DELAY_MS = 800
 export const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 export const OPENROUTER_DEFAULT_MODEL = 'openai/gpt-4o-mini'
+export const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
+export const OPENAI_DEFAULT_MODEL = 'gpt-4o-mini'
+export const XAI_API_URL = 'https://api.x.ai/v1/chat/completions'
+export const XAI_DEFAULT_MODEL = 'grok-3-mini'
+export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+export const GEMINI_DEFAULT_MODEL = 'gemini-2.0-flash'
 export const APP_REFERER = 'https://werkaholic.ai'
 export const APP_TITLE = 'Werkaholic AI'
 
@@ -152,13 +158,32 @@ interface ResolvedProvider {
 }
 
 function resolveProvider(provider: ProviderId): ResolvedProvider {
-  const label = provider === 'opencode' ? 'OpenCode' : 'OpenRouter'
+  const labels: Record<ProviderId, string> = {
+    opencode: 'OpenCode',
+    openrouter: 'OpenRouter',
+    openai: 'OpenAI',
+    xai: 'xAI',
+    gemini: 'Gemini',
+  }
+  const label = labels[provider] ?? provider
+  if (!(provider in labels)) {
+    throw new ProviderError('config', `Unbekannter KI-Provider: ${String(provider)} — Einstellungen prüfen.`)
+  }
   const key = getProviderKey(provider)
   if (!key) {
     throw new ProviderError('auth', `Kein API-Key für ${label} – in Einstellungen hinterlegen.`)
   }
   if (provider === 'openrouter') {
     return { key, model: getProviderModel('openrouter') || OPENROUTER_DEFAULT_MODEL, url: OPENROUTER_API_URL, label }
+  }
+  if (provider === 'openai') {
+    return { key, model: getProviderModel('openai') || OPENAI_DEFAULT_MODEL, url: OPENAI_API_URL, label }
+  }
+  if (provider === 'xai') {
+    return { key, model: getProviderModel('xai') || XAI_DEFAULT_MODEL, url: XAI_API_URL, label }
+  }
+  if (provider === 'gemini') {
+    return { key, model: getProviderModel('gemini') || GEMINI_DEFAULT_MODEL, url: GEMINI_API_URL, label }
   }
   const url = getApiUrl()
   if (!url) {

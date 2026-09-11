@@ -43,6 +43,23 @@ npm test                    # vitest run
 | Var | Zweck |
 |---|---|
 | `VITE_OPEN_CODE_API_URL` / `OPEN_CODE_API_URL` | Open Code Endpoint (Platzhalter möglich) |
+| `VITE_OPEN_CODE_API_KEY` | OpenCode Key (Fallback) |
+| `VITE_OPENROUTER_API_KEY` / `VITE_OPENROUTER_MODEL` | OpenRouter Key + Modell (Fallback) |
+| `VITE_OPENAI_API_KEY` / `VITE_OPENAI_MODEL` | OpenAI Key + Modell (Fallback) |
+| `VITE_XAI_API_KEY` / `VITE_XAI_MODEL` | xAI (Grok) Key + Modell (Fallback) |
+| `VITE_GEMINI_API_KEY` / `VITE_GEMINI_MODEL` | Gemini Key + Modell (Fallback) |
+
+## KI-Provider
+
+Alle Provider nutzen den OpenAI-Chat-Completions-Shape (`Authorization: Bearer`, `{model, messages:[system, user mit image_url-DataURLs]}`).
+
+| Provider | Endpoint | Default-Modell |
+|---|---|---|
+| `opencode` | konfigurierbar (Settings `apiUrl` / `VITE_OPEN_CODE_API_URL`) | `default` |
+| `openrouter` | `https://openrouter.ai/api/v1/chat/completions` | `openai/gpt-4o-mini` |
+| `openai` | `https://api.openai.com/v1/chat/completions` | `gpt-4o-mini` |
+| `xai` | `https://api.x.ai/v1/chat/completions` | `grok-3-mini` |
+| `gemini` | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` (OpenAI-kompatibel, Bearer reicht) | `gemini-2.0-flash` |
 
 ## Marktplätze
 

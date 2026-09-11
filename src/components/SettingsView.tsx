@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft, CheckCircle2, Save, Shield, XCircle } from 'lucide-react';
-import type { AppSettings } from '../types';
+import type { AppSettings, ProviderId } from '../types';
 import { defaultTraderaConfig, verifyTraderaConnection } from '../services/tradera';
 import { defaultEbayConfig, verifyEbayConnection } from '../services/marketplaces/ebay';
 import { defaultEtsyConfig, verifyEtsyConnection } from '../services/marketplaces/etsy';
@@ -28,6 +28,9 @@ export default function SettingsView({ settings, onSave, onBack }: Props) {
   const [tab, setTab] = useState<Tab>('ki');
   const [s, setS] = useState<AppSettings>({
     ...settings,
+    openai: settings.openai ?? { apiKey: '', model: '' },
+    xai: settings.xai ?? { apiKey: '', model: '' },
+    gemini: settings.gemini ?? { apiKey: '', model: '' },
     tradera: { ...defaultTraderaConfig(), ...settings.tradera },
     ebay: { ...defaultEbayConfig(), ...settings.ebay },
     etsy: { ...defaultEtsyConfig(), ...settings.etsy },
@@ -73,15 +76,21 @@ export default function SettingsView({ settings, onSave, onBack }: Props) {
       <div className="bg-oil-800 border border-stone-700 rounded-xl p-5 space-y-4">
         {tab === 'ki' && (
           <>
-            <div className="flex gap-2">
-              {(['opencode', 'openrouter'] as const).map((p) => (
+            <div className="flex flex-wrap gap-2">
+              {(['opencode', 'openrouter', 'openai', 'xai', 'gemini'] as const satisfies readonly ProviderId[]).map((p) => (
                 <button key={p} onClick={() => patch('activeProvider', p)} className={`px-4 py-2 rounded text-xs font-bold uppercase ${s.activeProvider === p ? 'bg-rust-600 text-white' : 'bg-stone-900 text-stone-400 border border-stone-700'}`}>{p}</button>
               ))}
             </div>
             <Field label="API-Key (password)" type="password" value={s[s.activeProvider].apiKey} onChange={(e) => patch(s.activeProvider, { ...s[s.activeProvider], apiKey: e.target.value })} placeholder="Key nur lokal" />
-            {s.activeProvider === 'openrouter'
-              ? <Field label="Modell (openrouter)" value={s.openrouter.model ?? ''} onChange={(e) => patch('openrouter', { ...s.openrouter, model: e.target.value })} placeholder="openai/gpt-4o-mini" />
-              : <Field label="API-URL (opencode)" value={s.opencode.apiUrl ?? ''} onChange={(e) => patch('opencode', { ...s.opencode, apiUrl: e.target.value })} placeholder="https://…" />}
+            {s.activeProvider === 'opencode'
+              ? <Field label="API-URL (opencode)" value={s.opencode.apiUrl ?? ''} onChange={(e) => patch('opencode', { ...s.opencode, apiUrl: e.target.value })} placeholder="https://…" />
+              : s.activeProvider === 'openrouter'
+                ? <Field label="Modell (openrouter)" value={s.openrouter.model ?? ''} onChange={(e) => patch('openrouter', { ...s.openrouter, model: e.target.value })} placeholder="openai/gpt-4o-mini" />
+                : s.activeProvider === 'openai'
+                  ? <Field label="Modell (openai)" value={s.openai.model ?? ''} onChange={(e) => patch('openai', { ...s.openai, model: e.target.value })} placeholder="gpt-4o-mini" />
+                  : s.activeProvider === 'xai'
+                    ? <Field label="Modell (xai)" value={s.xai.model ?? ''} onChange={(e) => patch('xai', { ...s.xai, model: e.target.value })} placeholder="grok-3-mini" />
+                    : <Field label="Modell (gemini)" value={s.gemini.model ?? ''} onChange={(e) => patch('gemini', { ...s.gemini, model: e.target.value })} placeholder="gemini-2.0-flash" />}
             <button onClick={kiCheck} className="px-4 py-2 bg-stone-800 border border-stone-600 rounded text-xs font-bold uppercase text-stone-200">Key-Format prüfen (kein Call)</button>
           </>
         )}

@@ -35,7 +35,7 @@ export const ViewState = {
 } as const;
 export type ViewState = (typeof ViewState)[keyof typeof ViewState];
 
-export type ProviderId = 'opencode' | 'openrouter';
+export type ProviderId = 'opencode' | 'openrouter' | 'openai' | 'xai' | 'gemini';
 
 export interface ProviderSettings {
   apiKey: string;
@@ -100,6 +100,9 @@ export interface AppSettings {
   activeProvider: ProviderId;
   opencode: ProviderSettings;
   openrouter: ProviderSettings;
+  openai: ProviderSettings;
+  xai: ProviderSettings;
+  gemini: ProviderSettings;
   tradera?: TraderaConfig;
   ebay?: EbayConfig;
   etsy?: EtsyConfig;
@@ -114,6 +117,9 @@ export function defaultAppSettings(): AppSettings {
     activeProvider: 'opencode',
     opencode: { apiKey: '', model: '', apiUrl: '' },
     openrouter: { apiKey: '', model: '' },
+    openai: { apiKey: '', model: '' },
+    xai: { apiKey: '', model: '' },
+    gemini: { apiKey: '', model: '' },
   };
 }
 

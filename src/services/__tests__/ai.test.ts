@@ -46,6 +46,12 @@ beforeEach(() => {
     'OPEN_CODE_API_URL',
     'VITE_OPENROUTER_API_KEY',
     'VITE_OPENROUTER_MODEL',
+    'VITE_OPENAI_API_KEY',
+    'VITE_OPENAI_MODEL',
+    'VITE_XAI_API_KEY',
+    'VITE_XAI_MODEL',
+    'VITE_GEMINI_API_KEY',
+    'VITE_GEMINI_MODEL',
   ]) {
     if (env) env[k] = ''
   }
@@ -136,6 +142,74 @@ describe('analyzeWithProvider', () => {
     expect(headers['HTTP-Referer']).toBeTruthy()
     expect(headers['X-Title']).toBeTruthy()
     expect(opts.body as string).toContain('openai/gpt-4o-mini')
+  })
+
+  it('openai: URL + Bearer-Header + Default-Modell', async () => {
+    saveSettings({
+      ...defaultAppSettings(),
+      activeProvider: 'openai',
+      openai: { apiKey: 'sk-test', model: '' },
+    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(SPEC_RAW) } }] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const out = await analyzeWithProvider('openai', { images: [], captions: ['Bohrer'], extraNotes: '' })
+    expect(out.title).toBe(SPEC_RAW.title)
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.openai.com/v1/chat/completions')
+    expect((opts.headers as Record<string, string>).Authorization).toBe('Bearer sk-test')
+    expect(opts.body as string).toContain('gpt-4o-mini')
+  })
+
+  it('xai: URL + Bearer-Header + Default-Modell', async () => {
+    saveSettings({
+      ...defaultAppSettings(),
+      activeProvider: 'xai',
+      xai: { apiKey: 'xai-test', model: '' },
+    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(SPEC_RAW) } }] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    await analyzeWithProvider('xai', { images: [], captions: ['Bohrer'], extraNotes: '' })
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.x.ai/v1/chat/completions')
+    expect((opts.headers as Record<string, string>).Authorization).toBe('Bearer xai-test')
+    expect(opts.body as string).toContain('grok-3-mini')
+  })
+
+  it('gemini: OpenAI-kompatible URL + Bearer-Header + Default-Modell', async () => {
+    saveSettings({
+      ...defaultAppSettings(),
+      activeProvider: 'gemini',
+      gemini: { apiKey: 'gem-test', model: '' },
+    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(SPEC_RAW) } }] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    await analyzeWithProvider('gemini', { images: [], captions: ['Bohrer'], extraNotes: '' })
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions')
+    expect((opts.headers as Record<string, string>).Authorization).toBe('Bearer gem-test')
+    expect(opts.body as string).toContain('gemini-2.0-flash')
+  })
+
+  it('ungültiger Provider → config-Fehler', async () => {
+    saveSettings(defaultAppSettings())
+    await expect(
+      analyzeWithProvider('unbekannt' as unknown as 'openai', { images: [], captions: ['x'], extraNotes: '' }),
+    ).rejects.toMatchObject({ kind: 'config' })
   })
 
   it('wirft auth-Fehler bei 401 ohne Retry', async () => {
