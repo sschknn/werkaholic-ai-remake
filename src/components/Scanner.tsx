@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, Camera, ImagePlus, Loader2, Sparkles, X } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { AlertCircle, ImagePlus, Loader2, Sparkles, X, Camera as CameraIcon } from 'lucide-react';
+import { Camera, CameraSource, CameraResultType, CameraDirection } from '@capacitor/camera';
 import type { AdAnalysis, AppSettings } from '../types';
 import { analyzeWithProvider, buildPlaceholderAnalysis, ProviderError } from '../services/ai';
 
@@ -9,12 +10,7 @@ interface Props {
   isEmbedded: boolean;
   settings: AppSettings;
 }
-const CONSTRAINTS: MediaStreamConstraints[] = [
-  { video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
-  { video: { facingMode: 'environment', width: { ideal: 1280 } } },
-  { video: true },
-];
-type C = MediaTrackConstraints;
+
 export default function Scanner({ onAnalysisComplete, onCancel, isEmbedded, settings }: Props) {
   const [mode, setMode] = useState<'camera' | 'upload'>('camera');
   const [images, setImages] = useState<string[]>([]);
@@ -24,72 +20,60 @@ export default function Scanner({ onAnalysisComplete, onCancel, isEmbedded, sett
   const [error, setError] = useState<{ msg: string; kind?: string } | null>(null);
   const [canPlaceholder, setCanPlaceholder] = useState(false);
   const [camActive, setCamActive] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [camError, setCamError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const stopCam = useCallback(() => {
-    const v = videoRef.current;
-    (v?.srcObject as MediaStream | null)?.getTracks().forEach((t) => t.stop());
-    if (v) v.srcObject = null;
-    setCamActive(false);
-  }, []);
-  const startCam = useCallback(async () => {
-    setError(null);
-    stopCam();
-    let stream: MediaStream | null = null;
-    for (const c of CONSTRAINTS) {
-      try { stream = await navigator.mediaDevices.getUserMedia(c); if (stream) break; } catch { /* fallback */ }
-    }
-    if (!stream) { setError({ msg: 'Kamera nicht verfügbar – bitte Upload nutzen.' }); setMode('upload'); return; }
-    const track = stream.getVideoTracks()[0];
+  const takePhoto = useCallback(async () => {
+    setError(null); setCamError(null);
     try {
-      const caps = (typeof track?.getCapabilities === 'function' ? track.getCapabilities() : {}) as { focusMode?: string[] };
-      if (caps.focusMode?.includes('continuous')) await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] } as unknown as C);
-    } catch { /* ignorieren */ }
-    if (videoRef.current) { videoRef.current.srcObject = stream; setCamActive(true); }
-  }, [stopCam]);
-  useEffect(() => { if (mode === 'camera') void startCam(); else stopCam(); return () => stopCam(); }, [mode, startCam, stopCam]);
-
-  const tapFocus = async () => { // Tap-to-Focus wenn unterstützt
-    const track = (videoRef.current?.srcObject as MediaStream | null)?.getVideoTracks()[0];
-    if (!track || typeof track.getCapabilities !== 'function') return;
-    try {
-      const caps = track.getCapabilities() as { focusMode?: string[] };
-      if (caps.focusMode?.includes('single')) {
-        await track.applyConstraints({ advanced: [{ focusMode: 'single' }] } as unknown as C);
-        setTimeout(() => { track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] } as unknown as C).catch(() => undefined); }, 300);
+      const photo = await Camera.getPhoto({
+        source: CameraSource.Camera,
+        direction: CameraDirection.Rear,
+        resultType: CameraResultType.DataUrl,
+        quality: 80,
+        width: 1280,
+        height: 960,
+        correctOrientation: true,
+        saveToGallery: false,
+        webUseInput: true,
+      });
+      if (photo.dataUrl) {
+        setImages((p: string[]) => [...p, photo.dataUrl!]);
+        setCaptions((p: string[]) => [...p, '']);
+        setCamActive(true);
+      } else {
+        setCamError('Kein Bild aufgenommen – bitte Upload nutzen.');
+        setMode('upload');
       }
-    } catch { /* ignorieren */ }
-  };
-  const capture = () => { // Button-Capture, Canvas-Downscale 1280px/q0.9
-    const v = videoRef.current; const c = canvasRef.current;
-    if (!v || !c || !v.videoWidth) return;
-    const max = 1280; let w = v.videoWidth; let h = v.videoHeight;
-    if (w > max || h > max) { if (w > h) { h = Math.round((h * max) / w); w = max; } else { w = Math.round((w * max) / h); h = max; } }
-    c.width = w; c.height = h;
-    const ctx = c.getContext('2d'); if (!ctx) return;
-    ctx.drawImage(v, 0, 0, w, h);
-    setImages((p) => [...p, c.toDataURL('image/jpeg', 0.9)]);
-    setCaptions((p) => [...p, '']);
-  };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('user')) {
+        setCamError(null); return;
+      }
+      setCamError(`Kamera-Fehler: ${msg} – bitte Upload nutzen.`);
+      setMode('upload');
+    }
+  }, []);
+
   const readFiles = async (files: FileList | File[]) => {
     const urls: string[] = [];
     for (const f of Array.from(files)) {
-      urls.push(await new Promise<string>((res) => { const r = new FileReader(); r.onloadend = () => res(r.result as string); r.readAsDataURL(f); }));
+      urls.push(await new Promise<string>((res: (v: string) => void) => { const r = new FileReader(); r.onloadend = () => res(r.result as string); r.readAsDataURL(f); }));
     }
-    setImages((p) => [...p, ...urls]); setCaptions((p) => [...p, ...urls.map(() => '')]);
+    setImages((p: string[]) => [...p, ...urls]); setCaptions((p: string[]) => [...p, ...urls.map(() => '')]);
   };
-  const removeAt = (i: number) => { setImages((p) => p.filter((_, j) => j !== i)); setCaptions((p) => p.filter((_, j) => j !== i)); };
+
+  const removeAt = (i: number) => { setImages((p: string[]) => p.filter((_, j: number) => j !== i)); setCaptions((p: string[]) => p.filter((_, j: number) => j !== i)); };
+
   const analyze = async () => {
     setError(null); setCanPlaceholder(false);
-    if (images.length === 0 && !captions.some((c) => c.trim()) && !extraNotes.trim()) {
+    if (images.length === 0 && !captions.some((c: string) => c.trim()) && !extraNotes.trim()) {
       setError({ msg: 'Mindestens ein Bild oder eine Beschreibung erforderlich.', kind: 'config' }); return;
     }
     setAnalyzing(true);
     try {
       const res = await analyzeWithProvider(settings.activeProvider, { images, captions, extraNotes });
-      stopCam(); onAnalysisComplete(res, images[0] ?? '', images.slice(1));
+      onAnalysisComplete(res, images[0] ?? '', images.slice(1));
     } catch (e) {
       const kind = e instanceof ProviderError ? e.kind : 'network';
       const msg = e instanceof Error ? e.message : String(e);
@@ -97,12 +81,28 @@ export default function Scanner({ onAnalysisComplete, onCancel, isEmbedded, sett
       else { setError({ msg, kind }); setCanPlaceholder(kind === 'network' || kind === 'server' || kind === 'rate-limit'); }
     } finally { setAnalyzing(false); }
   };
-  const savePlaceholder = () => { const ph = buildPlaceholderAnalysis(captions, extraNotes); stopCam(); onAnalysisComplete(ph, images[0] ?? '', images.slice(1)); };
+
+  const savePlaceholder = () => { const ph = buildPlaceholderAnalysis(captions, extraNotes); onAnalysisComplete(ph, images[0] ?? '', images.slice(1)); };
+
+  const checkCamera = useCallback(async () => {
+    try {
+      const perm = await Camera.checkPermissions();
+      if (perm.camera !== 'granted') {
+        await Camera.requestPermissions({ permissions: ['camera'] });
+      }
+      setCamActive(true);
+    } catch {
+      setCamError('Kamera-Berechtigung fehlgeschlagen – bitte Upload nutzen.');
+      setMode('upload');
+    }
+  }, []);
+
+  useEffect(() => { if (mode === 'camera') void checkCamera(); }, [mode, checkCamera]);
 
   return (
     <div className="flex flex-col bg-oil-800 border border-stone-700/50 rounded-2xl overflow-hidden animate-fade-in">
       <div className="p-4 border-b border-stone-700 flex justify-between items-center bg-stone-900/50">
-        <h2 className="font-bold text-white font-industrial uppercase flex items-center gap-2"><Camera className="w-5 h-5 text-rust-500" /> Scanner</h2>
+        <h2 className="font-bold text-white font-industrial uppercase flex items-center gap-2"><CameraIcon className="w-5 h-5 text-rust-500" /> Scanner</h2>
         <div className="flex gap-2">
           <button onClick={() => setMode(mode === 'camera' ? 'upload' : 'camera')} className="text-xs px-3 py-1.5 bg-stone-800 border border-stone-700 rounded text-stone-300 hover:text-white">{mode === 'camera' ? 'Upload' : 'Kamera'}</button>
           {!isEmbedded && <button onClick={onCancel} className="p-1.5 text-stone-400 hover:text-white"><X className="w-5 h-5" /></button>}
@@ -110,11 +110,10 @@ export default function Scanner({ onAnalysisComplete, onCancel, isEmbedded, sett
       </div>
       <div className="p-4 space-y-4">
         {mode === 'camera' && (
-          <div className="relative bg-black rounded-lg overflow-hidden cursor-crosshair" onClick={() => void tapFocus()} title="Tippen zum Fokussieren">
-            <video ref={videoRef} autoPlay playsInline muted className="w-full max-h-72 object-cover opacity-90" />
-            <canvas ref={canvasRef} className="hidden" />
-            {!camActive && <p className="absolute inset-0 flex items-center justify-center text-stone-500 text-xs">Kamera startet …</p>}
-            <button onClick={(e) => { e.stopPropagation(); capture(); }} className="absolute bottom-3 left-1/2 -translate-x-1/2 w-14 h-14 bg-white/10 border-4 border-stone-300 rounded-full flex items-center justify-center hover:bg-white/20"><span className="w-10 h-10 bg-white rounded-full" /></button>
+          <div className="relative bg-black rounded-lg overflow-hidden">
+            {!camActive && !camError && <p className="absolute inset-0 flex items-center justify-center text-stone-500 text-xs">Kamera startet …</p>}
+            {camError && <div className="absolute inset-0 flex flex-col items-center justify-center bg-stone-900/90 p-4 text-center"><p className="text-red-400 text-xs mb-3">{camError}</p><button onClick={() => setMode('upload')} className="px-4 py-2 bg-rust-600 text-white rounded text-xs font-bold">Bilder wählen</button></div>}
+            <button onClick={(e) => { e.stopPropagation(); void takePhoto(); }} className="absolute bottom-3 left-1/2 -translate-x-1/2 w-14 h-14 bg-white/10 border-4 border-stone-300 rounded-full flex items-center justify-center hover:bg-white/20"><span className="w-10 h-10 bg-white rounded-full" /></button>
           </div>
         )}
         {mode === 'upload' && (
@@ -123,12 +122,16 @@ export default function Scanner({ onAnalysisComplete, onCancel, isEmbedded, sett
             <p className="text-white font-medium font-industrial uppercase text-sm">Bilder wählen</p>
             <p className="text-stone-500 text-xs">Mehrfachauswahl – Bild 1 = Analyse-Basis</p>
             <input ref={fileRef} type="file" multiple accept="image/*" className="hidden" onChange={(e) => { if (e.target.files) void readFiles(e.target.files); }} />
+            <p className="text-stone-600 text-[10px] mt-2">Oder Kamera oben aktivieren</p>
           </div>
         )}
-        {images.map((img, i) => (
+        {camError && mode === 'camera' && (
+          <button onClick={() => setMode('upload')} className="w-full py-2 bg-stone-800 border border-stone-600 rounded text-stone-200 text-xs font-bold hover:bg-stone-700">Upload statt Kamera nutzen</button>
+        )}
+        {images.map((img: string, i: number) => (
           <div key={i} className="flex gap-2 items-start bg-stone-900/50 border border-stone-700 rounded-lg p-2">
             <img src={img} alt="" className="w-14 h-14 rounded object-cover" />
-            <input value={captions[i] ?? ''} onChange={(e) => setCaptions((p) => p.map((c, j) => (j === i ? e.target.value : c)))} placeholder={`Caption Bild ${i + 1} (optional)`} className="flex-1 bg-stone-900 border border-stone-700 rounded px-2 py-1.5 text-xs text-white placeholder-stone-600 outline-none focus:border-rust-500" />
+            <input value={captions[i] ?? ''} onChange={(e) => setCaptions((p: string[]) => p.map((c: string, j: number) => (j === i ? e.target.value : c)))} placeholder={`Caption Bild ${i + 1} (optional)`} className="flex-1 bg-stone-900 border border-stone-700 rounded px-2 py-1.5 text-xs text-white placeholder-stone-600 outline-none focus:border-rust-500" />
             <button onClick={() => removeAt(i)} className="p-1.5 text-stone-500 hover:text-red-500"><X className="w-4 h-4" /></button>
           </div>
         ))}
