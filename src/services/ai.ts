@@ -214,7 +214,7 @@ function extractContent(data: unknown): string {
   if (typeof data === 'string') return data
   if (typeof data === 'object' && data !== null) {
     const d = data as Record<string, unknown>
-    const choices = d.choices as Array<{ message?: { content?: unknown } }> | undefined
+    const choices = d.choices as Array<{ message?: { content?: unknown; reasoning?: unknown } }> | undefined
     const content = choices?.[0]?.message?.content
     if (typeof content === 'string' && content) return content
     if (Array.isArray(content)) {
@@ -226,7 +226,8 @@ function extractContent(data: unknown): string {
     }
     if (typeof d.text === 'string' && d.text) return d.text
     if (typeof d.output === 'string' && d.output) return d.output
-    if (typeof d.reasoning === 'string' && d.reasoning) return d.reasoning
+    const msgReasoning = choices?.[0]?.message?.reasoning
+    if (typeof msgReasoning === 'string' && msgReasoning) return msgReasoning
     return JSON.stringify(data)
   }
   return String(data)
@@ -312,6 +313,7 @@ export async function analyzeWithProvider(provider: ProviderId, input: AnalyzeIn
 
   const providersToTry = [provider, ...getFallbackProviders(provider)]
   const errors: string[] = []
+  let lastError: ProviderError | null = null
 
   for (const p of providersToTry) {
     const cfg = resolveProvider(p)
@@ -320,6 +322,9 @@ export async function analyzeWithProvider(provider: ProviderId, input: AnalyzeIn
         const rawText = await postOnce(p, cfg, input)
         return parseAnalysis(rawText)
       } catch (e) {
+        if (e instanceof ProviderError) {
+          lastError = e
+        }
         const kind = e instanceof ProviderError ? e.kind : 'network'
         if (kind === 'auth' || kind === 'rate-limit' || kind === 'quota') {
           errors.push(`${cfg.label}: ${e instanceof Error ? e.message : String(e)}`)
@@ -347,6 +352,9 @@ export async function analyzeWithProvider(provider: ProviderId, input: AnalyzeIn
   }
 
   const lastErr = errors.length > 0 ? errors.join(' | ') : 'Unbekannter Fehler'
+  if (lastError && (lastError.kind === 'auth' || lastError.kind === 'rate-limit' || lastError.kind === 'quota')) {
+    throw lastError
+  }
   throw new ProviderError('network', `Alle Provider gescheitert: ${lastErr} — lokal speichern möglich.`)
 }
 

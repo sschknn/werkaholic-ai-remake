@@ -202,7 +202,7 @@ describe('analyzeWithProvider', () => {
     const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions')
     expect((opts.headers as Record<string, string>).Authorization).toBe('Bearer gem-test')
-    expect(opts.body as string).toContain('gemini-2.0-flash')
+    expect(opts.body as string).toContain('gemini-3.6-flash')
   })
 
   it('ungültiger Provider → config-Fehler', async () => {

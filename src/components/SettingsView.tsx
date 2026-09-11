@@ -8,11 +8,12 @@ import { defaultHoodConfig } from '../services/marketplaces/hood';
 import { defaultFacebookConfig, verifyFacebookConnection } from '../services/marketplaces/facebook';
 
 interface Props { settings: AppSettings; onSave: (s: AppSettings) => void; onBack: () => void; }
-type Tab = 'ki' | 'tradera' | 'ebay' | 'etsy' | 'hood' | 'facebook';
+type Tab = 'ki' | 'tradera' | 'ebay' | 'etsy' | 'hood' | 'facebook' | 'browser';
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'ki', label: 'KI-Provider' }, { id: 'tradera', label: 'Tradera' }, { id: 'ebay', label: 'eBay' },
   { id: 'etsy', label: 'Etsy' }, { id: 'hood', label: 'Hood' }, { id: 'facebook', label: 'Facebook' },
+  { id: 'browser', label: 'Browser-Publisher' },
 ];
 
 function Field({ label, ...rest }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
@@ -31,6 +32,14 @@ export default function SettingsView({ settings, onSave, onBack }: Props) {
     openai: settings.openai ?? { apiKey: '', model: '' },
     xai: settings.xai ?? { apiKey: '', model: '' },
     gemini: settings.gemini ?? { apiKey: '', model: '' },
+    browserPublisher: {
+      enabled: settings.browserPublisher?.enabled ?? false,
+      username: settings.browserPublisher?.username ?? '',
+      password: settings.browserPublisher?.password ?? '',
+      autoFillOnly: settings.browserPublisher?.autoFillOnly ?? false,
+      defaultCategory: settings.browserPublisher?.defaultCategory ?? 'Sonstiges',
+      defaultCondition: settings.browserPublisher?.defaultCondition ?? 'Gebraucht',
+    },
     tradera: { ...defaultTraderaConfig(), ...settings.tradera },
     ebay: { ...defaultEbayConfig(), ...settings.ebay },
     etsy: { ...defaultEtsyConfig(), ...settings.etsy },
@@ -163,6 +172,26 @@ export default function SettingsView({ settings, onSave, onBack }: Props) {
             </div>
             <p className="text-xs text-stone-500">Nur für zugelassene Partner (Graph API Catalog). Ohne Partner-Zugang deaktiviert.</p>
             <button onClick={() => void verify()} disabled={checking} className="px-4 py-2 bg-stone-800 border border-stone-600 rounded text-xs font-bold uppercase text-stone-200 disabled:opacity-50">{checking ? 'Prüfe …' : 'Verify'}</button>
+          </div>
+        )}
+
+        {tab === 'browser' && (
+          <div className="space-y-4">
+            <label className="flex items-center gap-2 text-xs text-stone-300">
+              <input type="checkbox" checked={s.browserPublisher?.enabled ?? false} onChange={(e) => patch('browserPublisher', { ...s.browserPublisher, enabled: e.target.checked })} className="accent-rust-600 w-4 h-4" />
+              Browser-Publisher aktivieren (Electron-Desktop)
+            </label>
+            <p className="text-xs text-stone-500">Öffnet einen Mini-Browser zum automatischen Ausfüllen von Inserat-Formularen (z. B. Kleinanzeigen.de).</p>
+            {s.browserPublisher && (
+              <>
+                <Field label="Standard-Kategorie" value={s.browserPublisher.defaultCategory} onChange={(e) => patch('browserPublisher', { ...s.browserPublisher, defaultCategory: e.target.value })} placeholder="Sonstiges" />
+                <Field label="Standard-Zustand" value={s.browserPublisher.defaultCondition} onChange={(e) => patch('browserPublisher', { ...s.browserPublisher, defaultCondition: e.target.value })} placeholder="Gebraucht" />
+                <label className="flex items-center gap-2 text-xs text-stone-300">
+                  <input type="checkbox" checked={s.browserPublisher.autoFillOnly} onChange={(e) => patch('browserPublisher', { ...s.browserPublisher, autoFillOnly: e.target.checked })} className="accent-rust-600 w-4 h-4" />
+                  Nur ausfüllen, nicht automatisch abschicken
+                </label>
+              </>
+            )}
           </div>
         )}
 

@@ -111,6 +111,7 @@ export default function App() {
             <ResultView
               result={current.analysis}
               images={[current.image, ...(current.additionalImages ?? [])].filter(Boolean)}
+              settings={settings}
               onBack={() => setView(ViewState.DASHBOARD)}
               onSave={handleResultSave}
             />

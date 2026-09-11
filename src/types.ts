@@ -96,6 +96,15 @@ export interface FacebookConfig {
   apiVersion: string;
 }
 
+export interface BrowserPublisherSettings {
+  enabled: boolean;
+  username: string;
+  password: string;
+  autoFillOnly: boolean;
+  defaultCategory: string;
+  defaultCondition: string;
+}
+
 export interface AppSettings {
   activeProvider: ProviderId;
   opencode: ProviderSettings;
@@ -108,6 +117,7 @@ export interface AppSettings {
   etsy?: EtsyConfig;
   hood?: HoodConfig;
   facebook?: FacebookConfig;
+  browserPublisher?: BrowserPublisherSettings;
 }
 
 export const SETTINGS_KEY = 'werkaholic_settings';
@@ -120,6 +130,14 @@ export function defaultAppSettings(): AppSettings {
     openai: { apiKey: '', model: '' },
     xai: { apiKey: '', model: '' },
     gemini: { apiKey: '', model: '' },
+    browserPublisher: {
+      enabled: false,
+      username: '',
+      password: '',
+      autoFillOnly: false,
+      defaultCategory: 'Sonstiges',
+      defaultCondition: 'Gebraucht',
+    },
   };
 }
 

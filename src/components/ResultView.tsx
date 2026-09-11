@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Copy, FileDown, Archive, Plus, Trash2 } from 'lucide-react';
-import type { AdAnalysis } from '../types';
+import type { AdAnalysis, AppSettings } from '../types';
 import { sanitizeText, sanitizeTags } from '../utils/sanitize';
 import { copyAdToClipboard, exportAdPdf, exportAdZip } from '../services/exportService';
 import ResultPublish from './ResultPublish';
@@ -8,11 +8,12 @@ import ResultPublish from './ResultPublish';
 interface Props {
   result: AdAnalysis;
   images: string[];
+  settings?: AppSettings;
   onBack: () => void;
   onSave: (updated: AdAnalysis, images?: string[]) => void;
 }
 
-export default function ResultView({ result, images, onBack, onSave }: Props) {
+export default function ResultView({ result, images, settings, onBack, onSave }: Props) {
   const [form, setForm] = useState<AdAnalysis>(result);
   const [localImages, setLocalImages] = useState<string[]>(images);
   const [sel, setSel] = useState(0);
@@ -117,7 +118,7 @@ export default function ResultView({ result, images, onBack, onSave }: Props) {
         <button onClick={() => void doExport('zip')} disabled={busy !== null} className="py-2.5 bg-oil-800 border border-stone-700 rounded text-stone-200 text-xs font-bold uppercase flex items-center justify-center gap-1.5 hover:bg-stone-700"><Archive className="w-4 h-4" /> {busy === 'zip' ? '…' : 'ZIP'}</button>
       </div>
 
-      <ResultPublish ad={form} images={localImages} />
+      <ResultPublish ad={form} images={localImages} settings={settings} />
     </div>
   );
 }

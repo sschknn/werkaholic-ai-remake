@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { CheckCircle2, ExternalLink, Loader2 } from 'lucide-react';
-import type { AdAnalysis } from '../types';
+import { CheckCircle2, ExternalLink, Loader2, Globe } from 'lucide-react';
+import type { AdAnalysis, AppSettings } from '../types';
 import { ProviderError } from '../services/ai';
 import { copyAdToClipboard } from '../services/exportService';
 import { MARKETPLACES, publishToMarketplace, type MarketplaceId } from '../services/marketplaces/registry';
 import { getHoodConfig, downloadHoodCsv } from '../services/marketplaces/hood';
 import { getTraderaConfig, suggestCategory } from '../services/tradera';
+import { isBrowserPublisherAvailable, openPublisher, postListingFlow, getStatus, onStatus } from '../services/browserPublisher';
 
 const badge: Record<string, string> = {
   live: 'bg-emerald-900/50 text-emerald-400 border-emerald-700',
@@ -13,7 +14,7 @@ const badge: Record<string, string> = {
   unsupported: 'bg-stone-900 text-stone-500 border-stone-700',
 };
 
-export default function ResultPublish({ ad, images }: { ad: AdAnalysis; images: string[] }) {
+export default function ResultPublish({ ad, images, settings }: { ad: AdAnalysis; images: string[]; settings?: AppSettings }) {
   const [sel, setSel] = useState<MarketplaceId>('tradera');
   const [busy, setBusy] = useState(false);
   const [prog, setProg] = useState('');
@@ -46,6 +47,20 @@ export default function ResultPublish({ ad, images }: { ad: AdAnalysis; images: 
     window.open('https://www.kleinanzeigen.de/p-anzeige-aufgeben.html', '_blank');
   };
 
+  const browserSettings = settings?.browserPublisher ?? {
+    enabled: false, username: '', password: '', autoFillOnly: false,
+    defaultCategory: '', defaultCondition: '',
+  };
+
+  const [browserStatus, setBrowserStatus] = useState<{ loaded: boolean; url: string; loggedIn: boolean }>({ loaded: false, url: '', loggedIn: false });
+  const [browserBusy, setBrowserBusy] = useState(false);
+  const [browserMsg, setBrowserMsg] = useState('');
+
+  if (isBrowserPublisherAvailable() && !browserStatus.loaded) {
+    getStatus().then(setBrowserStatus).catch(() => {});
+    onStatus(setBrowserStatus);
+  }
+
   return (
     <div className="bg-oil-800 rounded-lg border border-stone-700 p-4 space-y-3">
       <h3 className="font-bold text-white font-industrial uppercase text-sm">Marktplatz-Publish</h3>
@@ -66,9 +81,49 @@ export default function ResultPublish({ ad, images }: { ad: AdAnalysis; images: 
         <p className="text-xs text-stone-400">Kategorie-Vorschlag: <b className="text-stone-200">{traderaCat.name} (#{traderaCat.id})</b> · AutoCommit: <b className="text-stone-200">{traderaCfg.autoCommit ? 'an' : 'aus (Entwurf)'}</b></p>
       )}
       {sel === 'kleinanzeigen' && (
-        <button onClick={() => void kleinanzeigen()} className="w-full py-2.5 bg-rust-600 hover:bg-rust-500 text-white rounded font-bold uppercase text-sm flex items-center justify-center gap-2">
-          <ExternalLink className="w-4 h-4" /> Kopieren + Kleinanzeigen öffnen
-        </button>
+        <div className="space-y-2">
+          <button onClick={() => void kleinanzeigen()} className="w-full py-2.5 bg-rust-600 hover:bg-rust-500 text-white rounded font-bold uppercase text-sm flex items-center justify-center gap-2">
+            <ExternalLink className="w-4 h-4" /> Kopieren + Kleinanzeigen öffnen
+          </button>
+          {browserSettings.enabled && isBrowserPublisherAvailable() && (
+            <>
+              {!browserStatus.loaded ? (
+                <button
+                  onClick={async () => {
+                    setBrowserBusy(true);
+                    setBrowserMsg('');
+                    const r = await openPublisher('kleinanzeigen');
+                    if (!r.ok) { setBrowserMsg(r.error || 'Fehler beim Öffnen'); }
+                    else { setBrowserMsg('Browser geöffnet – bitte einloggen'); }
+                    setBrowserBusy(false);
+                  }}
+                  disabled={browserBusy}
+                  className="w-full py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-200 rounded font-bold uppercase text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {browserBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+                  {browserBusy ? 'Öffne…' : 'Browser-Post (Kleinanzeigen)'}
+                </button>
+              ) : (
+                <button
+                  onClick={async () => {
+                    setBrowserBusy(true);
+                    setBrowserMsg('');
+                    const r = await postListingFlow(ad, images[0] ?? '', images.slice(1), browserSettings, 'kleinanzeigen');
+                    if (r.ok) setBrowserMsg('Formular ausgefüllt – bitte abschicken');
+                    else setBrowserMsg(r.error || 'Fehler');
+                    setBrowserBusy(false);
+                  }}
+                  disabled={browserBusy || !browserStatus.loggedIn}
+                  className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-700 text-white rounded font-bold uppercase text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {browserBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+                  {browserBusy ? 'Fülle aus…' : 'Auto-Inserat starten'}
+                </button>
+              )}
+              {browserMsg && <p className="text-xs text-stone-400">{browserMsg}</p>}
+            </>
+          )}
+        </div>
       )}
       {(sel === 'vinted' || sel === 'ricardo' || sel === 'willhaben') && (
         <div className="text-xs text-stone-400 space-y-2">
