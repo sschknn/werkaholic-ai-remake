@@ -40,7 +40,7 @@ export const OPENAI_DEFAULT_MODEL = 'gpt-4o-mini'
 export const XAI_API_URL = 'https://api.x.ai/v1/chat/completions'
 export const XAI_DEFAULT_MODEL = 'grok-3-mini'
 export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
-export const GEMINI_DEFAULT_MODEL = 'gemini-2.0-flash'
+export const GEMINI_DEFAULT_MODEL = 'gemini-3.6-flash'
 export const APP_REFERER = 'https://werkaholic.ai'
 export const APP_TITLE = 'Werkaholic AI'
 
@@ -298,8 +298,6 @@ function getFallbackProviders(current: ProviderId): ProviderId[] {
   const idx = PROVIDER_FALLBACK_CHAIN.indexOf(current)
   return idx >= 0 ? PROVIDER_FALLBACK_CHAIN.slice(idx + 1) : PROVIDER_FALLBACK_CHAIN
 }
-
-/** Prüft ob ein Fehler einen Provider-Wechsel rechtfertigt. (wird inline geprüft) */
 
 /**
  * Analysiert Bilder/Captions über den gewählten Provider zu einer AdAnalysis.
